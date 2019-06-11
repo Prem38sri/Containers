@@ -1,0 +1,69 @@
+version: '3'
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.6.0
+    environment:
+      - cluster.name=cluster-premelk
+      - node.name=es1
+    volumes:
+      - /apps/tibco/ELK/data/data1:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - esnet
+  logstash:
+    image: docker.elastic.co/logstash/logstash:6.6.0
+    depends_on:
+      - elasticsearch
+    ports:
+      - 5048:5048
+      - 5046:5046
+      - 5043:5043
+    volumes:
+      - /apps/tibco/ELK/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - /apps/tibco/ELK/pipeline:/usr/share/logstash/pipeline
+    networks:
+      - esnet
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.6.0
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_URL=http://xsnl50f732w.pharma.aventis.com:9200
+    ports:
+      - 5601:5601
+    networks:
+      - esnet
+networks:
+  esnet:
+
+
+##
+#logstash.yml
+#http.host: "0.0.0.0"
+#xpack.monitoring.elasticsearch.url: "http://xsnl50f732w.pharma.aventis.com:9200"
+ 
+#pieline
+"""
+input {
+    http {
+    port => 5043
+  }
+}
+filter
+{
+        grok
+        {
+                match => { "message" => "%{USERNAME:RITM} %{DATESTAMP:TIMESTAMP} - %{LOGLEVEL:Loglevel} - %{USERNAME:STEP} %{GREEDYDATA:ERRMSG}" }
+        }
+}
+
+output
+{
+        elasticsearch
+        {
+                hosts=> ["http://xsnl50f732w.pharma.aventis.com:9200"]
+                index=> ["etl-label-deploy-%{+YYYY.MM.dd}"]
+        }
+}
+"""
